@@ -1,0 +1,52 @@
+name: Build 7-Zip File Manager Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g., v1.0.0)"
+        required: true
+      title:
+        description: "Release title"
+        default: "7-Zip File Manager Build"
+      body:
+        description: "Release notes"
+        default: "Automated build of 7-Zip File Manager"
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Build x64
+        shell: cmd
+        run: |
+          cd CPP\7zip\UI\FileManager
+          nmake /S CPU=AMD64
+          copy x64\7zFM.exe ..\..\..\..\7zFM-64.exe
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - name: Build x86
+        shell: cmd
+        run: |
+          cd CPP\7zip\UI\FileManager
+          nmake /S
+          copy x86\7zFM.exe ..\..\..\..\7zFM-32.exe
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          name: ${{ github.event.inputs.title }}
+          body: ${{ github.event.inputs.body }}
+          files: |
+            ${{ github.workspace }}/7zFM-64.exe
+            ${{ github.workspace }}/7zFM-32.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
