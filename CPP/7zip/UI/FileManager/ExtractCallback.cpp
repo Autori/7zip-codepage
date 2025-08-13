@@ -553,6 +553,35 @@ void OpenResult_GUI(UString &s, const CCodecs *codecs, const CArchiveLink &arcLi
     const CArc &arc = arcLink.Arcs[level];
     const CArcErrorInfo &er = arc.ErrorInfo;
 
+    // AUTORI PATCH BEGIN
+    char* val = nullptr;
+    size_t len = 0;
+    if (_dupenv_s(&val, &len, "Z7_FORCE_CODEC") == 0 && val != nullptr) {
+      unsigned int codec = std::strtoul(val, nullptr, 10);
+      free(val);
+      
+      CMyComPtr<ISetProperties> setProperties;
+      arc.Archive.QueryInterface(IID_ISetProperties, (void**)&setProperties);
+      
+      if (setProperties)
+      {
+        const wchar_t* names[] =
+        {
+          L"cp",
+        };
+        const unsigned kNumProps = Z7_ARRAY_SIZE(names);
+        NWindows::NCOM::CPropVariant values[kNumProps] =
+        {
+            codec
+        };
+        setProperties->SetProperties(names, values, kNumProps);
+      }
+      else {
+        MessageBoxA(NULL, "Failed to get setProperties function (ExtractCallback.cpp)", "7zip Autori Codepage Patch", 0);
+      }
+    }
+    // AUTORI PATCH END
+
     if (!er.IsThereErrorOrWarning() && er.ErrorFormatIndex < 0)
       continue;
 

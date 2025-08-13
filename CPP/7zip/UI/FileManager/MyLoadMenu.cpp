@@ -21,6 +21,9 @@
 
 #include "PropertyNameRes.h"
 #include "resource.h"
+// AUTORI PATCH BEGIN
+#include <string>
+// AUTORI PATCH END
 
 using namespace NWindows;
 
@@ -39,13 +42,18 @@ extern HINSTANCE g_hInstance;
 
 extern void OptionsDialog(HWND hwndOwner, HINSTANCE hInstance);
 
+// AUTORI PATCH BEGIN
 enum
 {
   k_MenuIndex_File = 0,
   k_MenuIndex_Edit,
   k_MenuIndex_View,
-  k_MenuIndex_Bookmarks
+  k_MenuIndex_Bookmarks,
+  k_MenuIndex_Tools,
 };
+
+constexpr unsigned int codePagesArray[] = { 65001, 1252, 437, 850, 852, 866, 874, 932, 936, 949, 950, 1250, 1251, 1253, 1254, 1255, 1256, 1257, 1258 };
+// AUTORI PATCH END
 
 #ifdef Z7_LANG
 static const UInt32 k_LangID_TopMenuItems[] =
@@ -558,6 +566,39 @@ void OnMenuActivating(HWND /* hWnd */, HMENU hMenu, int position)
     }
 #endif
   }
+  // AUTORI PATCH BEGIN
+  else if (position == k_MenuIndex_Tools)
+  {
+    char* val = nullptr;
+    size_t len = 0;
+    unsigned int codec = 0;
+    if (_dupenv_s(&val, &len, "Z7_FORCE_CODEC") == 0 && val != nullptr) {
+        codec = std::strtoul(val, nullptr, 10);
+        free(val);
+    }
+
+    CMenu menu;
+    menu.Attach(hMenu);
+      
+    CMenu subMenu;
+    subMenu.Attach(menu.GetSubMenu(2)); // I hope this submenu index is stable
+      
+    int idx = -1;
+    for (size_t i = 0; i < Z7_ARRAY_SIZE(codePagesArray); i++) {
+      if (codePagesArray[i] == codec) {
+        idx = (int)i;
+        break;
+      }
+    }
+    
+    subMenu.CheckRadioItem(
+        IDM_NAME_ENCODING_DEFAULT,
+        IDM_NAME_ENCODING_DEFAULT + Z7_ARRAY_SIZE(codePagesArray),
+        IDM_NAME_ENCODING_DEFAULT + (idx + 1),
+        MF_BYCOMMAND
+    );
+  }
+  // AUTORI PATCH END
 }
 
 /*
@@ -913,7 +954,54 @@ bool OnMenuCommand(HWND hWnd, unsigned id)
 
     // Tools
     case IDM_OPTIONS: OptionsDialog(hWnd, g_hInstance); break;
-          
+    
+    // AUTORI PATCH BEGIN
+    // Tools > Name Encoding
+    case IDM_NAME_ENCODING_DEFAULT:
+    case IDM_NAME_ENCODING_65001:
+    case IDM_NAME_ENCODING_1252:
+    case IDM_NAME_ENCODING_437:
+    case IDM_NAME_ENCODING_850:
+    case IDM_NAME_ENCODING_852:
+    case IDM_NAME_ENCODING_866:
+    case IDM_NAME_ENCODING_874:
+    case IDM_NAME_ENCODING_932:
+    case IDM_NAME_ENCODING_936:
+    case IDM_NAME_ENCODING_949:
+    case IDM_NAME_ENCODING_950:
+    case IDM_NAME_ENCODING_1250:
+    case IDM_NAME_ENCODING_1251:
+    case IDM_NAME_ENCODING_1253:
+    case IDM_NAME_ENCODING_1254:
+    case IDM_NAME_ENCODING_1255:
+    case IDM_NAME_ENCODING_1256:
+    case IDM_NAME_ENCODING_1257:
+    case IDM_NAME_ENCODING_1258:
+    {
+      unsigned int codePageIndex = id - IDM_NAME_ENCODING_DEFAULT;
+      if (codePageIndex == 0)
+      {
+        // Default selected, remove env variable
+        _putenv_s("Z7_FORCE_CODEC", "");
+      }
+      else {
+        codePageIndex--;
+        unsigned int codePage = codePagesArray[codePageIndex];
+
+        _putenv_s("Z7_FORCE_CODEC", std::to_string(codePage).c_str());
+      }
+
+      // Refresh
+      for (unsigned int i = 0; i < g_App.NumPanels; i++)
+      {
+        UString originalPath = g_App.Panels[i]._currentFolderPrefix;
+        g_App.Panels[i].OpenRootFolder();
+        g_App.Panels[i].BindToPathAndRefresh(originalPath);
+      }
+      break;
+    }
+    // AUTORI PATCH END
+
     case IDM_BENCHMARK: MyBenchmark(false); break;
     case IDM_BENCHMARK2: MyBenchmark(true); break;
 

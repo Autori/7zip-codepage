@@ -143,6 +143,31 @@ BEGIN
   BEGIN
     MENUITEM "&Options...",                 IDM_OPTIONS
     MY_MENUITEM_SEPARATOR
+    POPUP "Name &Encoding"                  MY_MENUITEM_ID(IDM_NAME_ENCODING)
+    BEGIN
+      MENUITEM "&Default",                                        IDM_NAME_ENCODING_DEFAULT, MY_MFS_CHECKED
+      MENUITEM "65001 (UTF-8)",                                   IDM_NAME_ENCODING_65001
+      MENUITEM "1252 (ANSI - Latin I)",                           IDM_NAME_ENCODING_1252
+      MENUITEM "437 (OEM - United States)",                       IDM_NAME_ENCODING_437
+      MY_MENUITEM_SEPARATOR
+      MENUITEM "850 (OEM - Multilingual Latin I)",                IDM_NAME_ENCODING_850
+      MENUITEM "852 (OEM - Latin II)",                            IDM_NAME_ENCODING_852
+      MENUITEM "866 (OEM - Russian)",                             IDM_NAME_ENCODING_866
+      MENUITEM "874 (ANSI/OEM - Thai)",                           IDM_NAME_ENCODING_874
+      MENUITEM "932 (ANSI/OEM - Japanese Shift-JIS)",             IDM_NAME_ENCODING_932
+      MENUITEM "936 (ANSI/OEM - Simplified Chinese GBK)",         IDM_NAME_ENCODING_936
+      MENUITEM "949 (ANSI/OEM - Korean)",                         IDM_NAME_ENCODING_949
+      MENUITEM "950 (ANSI/OEM - Traditional Chinese Big5)",       IDM_NAME_ENCODING_950
+      MENUITEM "1250 (ANSI - Central Europe)",                    IDM_NAME_ENCODING_1250
+      MENUITEM "1251 (ANSI - Cyrillic)",                          IDM_NAME_ENCODING_1251
+      MENUITEM "1253 (ANSI - Greek)",                             IDM_NAME_ENCODING_1253
+      MENUITEM "1254 (ANSI - Turkish)",                           IDM_NAME_ENCODING_1254
+      MENUITEM "1255 (ANSI - Hebrew)",                            IDM_NAME_ENCODING_1255
+      MENUITEM "1256 (ANSI - Arabic)",                            IDM_NAME_ENCODING_1256
+      MENUITEM "1257 (ANSI - Baltic)",                            IDM_NAME_ENCODING_1257
+      MENUITEM "1258 (ANSI/OEM - Viet Nam)",                      IDM_NAME_ENCODING_1258
+    END
+    MY_MENUITEM_SEPARATOR
     MENUITEM "&Benchmark",                  IDM_BENCHMARK
   #ifdef UNDER_CE
     MENUITEM "Benchmark 2",                 IDM_BENCHMARK2
