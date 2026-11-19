@@ -1,4 +1,4 @@
-7-Zip 26.04 Sources
+7-Zip 26.06 Sources
 -------------------
 
 7-Zip is a file archiver for Windows.

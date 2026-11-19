@@ -28,8 +28,6 @@
 
 #include "../Compress/CopyCoder.h"
 
-#include "Common/DummyOutStream.h"
-
 #ifdef SHOW_DEBUG_INFO
 #define PRF(x) x
 #else
@@ -1429,7 +1427,7 @@ bool CMftRec::ParseRec(Byte * const p, const unsigned sectorSizeLog,
       case ATTR_TYPE_FILE_NAME:
       {
         CFileNameAttr fna;
-        if (!attr.ParseFileName(fna))
+        if (attr.NonResident != 0 || !attr.ParseFileName(fna))
           return false;
         FileNames.Add(fna);
         PRF(printf(" \n NameType = %1u: ", (unsigned)fna.NameType));
@@ -1437,13 +1435,15 @@ bool CMftRec::ParseRec(Byte * const p, const unsigned sectorSizeLog,
         break;
       }
       case ATTR_TYPE_STANDARD_INFO:
-        if (!attr.ParseSi(SiAttr))
+        if (attr.NonResident != 0 || !attr.ParseSi(SiAttr))
           return false;
         break;
       case ATTR_TYPE_DATA:
         DataAttrs.Add(attr);
         break;
       case ATTR_TYPE_REPARSE_POINT:
+        // if (attr.NonResident != 0) we must read NonResident data from disk
+        if (attr.NonResident == 0)
         if (ReparseDataIndex < 0)
           ReparseDataIndex = (int)reparseDataVector.Add(attr.Data);
         break;
@@ -1454,11 +1454,11 @@ bool CMftRec::ParseRec(Byte * const p, const unsigned sectorSizeLog,
       */
       default:
         // if (attrs) attrs->Add(attr);
-        if (volInfo)
+        if (volInfo && attr.NonResident == 0)
         {
           if (type == ATTR_TYPE_VOLUME_NAME && volInfo->VolName.IsEmpty())
             GetString(attr.Data, (unsigned)attr.Data.Size() / 2, volInfo->VolName);
-          else if (type == ATTR_TYPE_VOLUME_INFO /* && volInfo->FsVerMajor < 0 */)
+          else if (type == ATTR_TYPE_VOLUME_INFO && attr.Data.Size() >= 12 /* && volInfo->FsVerMajor < 0 */)
           {
             volInfo->FsVerMajor = attr.Data[8];
             volInfo->FsVerMinor = attr.Data[9];
@@ -2819,22 +2819,23 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
   }
   RINOK(extractCallback->SetTotal(totalSize))
 
+  NCompress::CCopyCoderBase copyCoder;
   CMyComPtr2_Create<ICompressProgressInfo, CLocalProgress> lps;
   lps->Init(extractCallback, false);
-  CMyComPtr2_Create<ICompressCoder, NCompress::CCopyCoder> copyCoder;
-  CMyComPtr2_Create<ISequentialOutStream, CDummyOutStream> outStream;
   CMyComPtr2<IInStream, CInStream> inStream_Object;
   UInt64 totalPackSize;
   totalSize = totalPackSize = 0;
 
   for (i = 0;; i++)
   {
-    lps->InSize = totalPackSize;
-    lps->OutSize = totalSize;
-    RINOK(lps->SetCur())
+    CLocalProgress *lps2 = lps.ClsPtr();
+    lps2->InSize = totalPackSize;
+    lps2->OutSize = totalSize;
+    RINOK(lps2->SetCur())
     if (i >= numItems)
       break;
-
+    int res;
+    {
     CMyComPtr<ISequentialOutStream> realOutStream;
     const Int32 askMode = testMode ?
         NExtract::NAskMode::kTest :
@@ -2853,10 +2854,6 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
       continue;
     RINOK(extractCallback->PrepareOperation(askMode))
 
-    outStream->SetStream(realOutStream);
-    realOutStream.Release();
-    outStream->Init();
-
     const CItem &item = Items[index];
     const CMftRec &rec = Recs[item.RecIndex];
     UInt64 unpackSize = 0;
@@ -2867,7 +2864,7 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
       unpackSize = data.GetSize();
       totalSize += unpackSize;
     }
-    int res = NExtract::NOperationResult::kDataError;
+    res = NExtract::NOperationResult::kDataError;
     {
       CMyComPtr<IInStream> inStream;
       HRESULT hres = rec.GetStream(InStream, item.DataIndex,
@@ -2879,18 +2876,18 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
         RINOK(hres)
         if (inStream)
         {
-          hres = copyCoder.Interface()->Code(inStream, outStream, NULL, NULL, lps);
+          hres = copyCoder.Code(inStream, realOutStream, NULL, lps);
           if (hres == S_OK)
           {
-            // if (copyCoder->TotalSize == unpackSize)
-            res = NExtract::NOperationResult::kOK;
+            if (copyCoder.TotalSize == unpackSize)
+              res = NExtract::NOperationResult::kOK;
           }
           else if (hres != S_FALSE)
             return hres;
         }
       }
     }
-    outStream->ReleaseStream();
+    }
     RINOK(extractCallback->SetOperationResult(res))
   }
   return S_OK;
